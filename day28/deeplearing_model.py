@@ -98,14 +98,25 @@ def evaluate_regression_model(model, dataloader,  device,criterion):
     model.eval()
     running_loss = 0.0
     with torch.no_grad():#禁止 autograd 记录计算图，节省显存与算力。
-        for inputs, targets in dataloader:
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs) #前向计算
+        for inputs, targets in dataloader:  # dataloader是数据加载器，包含输入数据和目标数据
+            if isinstance(inputs, list):  # 如果datas是tuple,list，则将每个元素都放到device上
+                inputs = [x.to(device) for x in inputs]
+            else:
+                inputs = inputs.to(device)
+
+            targets = targets.to(device)
+
+            # 模型前向计算
+            if isinstance(inputs, list):
+                outputs = model(*inputs)
+            else:
+                outputs = model(inputs)
+
             loss = criterion(outputs, targets) #计算损失
             
-            running_loss += loss.item() * inputs.size(0)
+            running_loss += loss.item()  #累加损失，inputs.size(0)返回每个批次的样本数量
     
-    return running_loss / len(dataloader.dataset)
+    return running_loss / len(dataloader) #返回平均损失
 
 
 # 分类评估模型
@@ -242,7 +253,6 @@ def train_regression_model(
                     record_dict["val"].append({
                         "loss": epoch_val_loss, "step": global_step
                     })
-                    model.train()  # 切换回训练集模式
                     
                     
                     # 保存模型权重
@@ -252,13 +262,13 @@ def train_regression_model(
                     
                     # 如果有早停器，检查是否应该早停
                     if early_stopping is not None:
-                        early_stopping(epoch_val_loss)
+                        early_stopping(-epoch_val_loss)
                         if early_stopping.early_stop:
                             print(f'早停: 已有{early_stopping.patience}轮验证损失没有改善！')
                             return model,record_dict
 
                 pbar.update(1)
-                pbar.set_postfix({"epoch": epoch_id, "loss": f"{loss.item():.4f}"})
+                pbar.set_postfix({"epoch": epoch_id, "loss": f"{loss.item():.4f},{epoch_train_loss:.4f}", "val_loss": f"{epoch_val_loss:.4f}", "step": global_step})
     
     return model,record_dict
 
@@ -272,7 +282,7 @@ def train_classification_model(
         criterion,
         optimizer,
         device,
-        num_epochs=10,
+        num_epochs=100,
         tensorboard_logger=None,
         model_saver=None,
         early_stopping=None,
@@ -447,35 +457,25 @@ def evaluate_milti_output_model(model, data_loader, device, criterion):
         avg_loss: 平均损失（如果提供了损失函数）
     """
     model.eval()  # 设置为评估模式
-    total = 0 #总样本数
     running_loss = 0.0 #总损失
     
     with torch.no_grad():  # 不计算梯度
-        for data, labels in data_loader:
+        for inputs , labels in data_loader:
             # 处理多输入情况
-            if isinstance(data, tuple):
+            if isinstance(inputs, tuple):
                 # 将所有输入数据移至设备
-                inputs = [x.to(device) for x in data]
+                inputs = [x.to(device) for x in inputs]
                 labels = labels.to(device)
                 
                 # 模型前向传播
                 outputs = model(*inputs)  # 使用解包操作符传递多个输入
             else:
                 # 单输入情况
-                data = data.to(device)
+                inputs = inputs.to(device)
                 labels = labels.to(device)
-                outputs = model(data)
+                outputs = model(inputs)
             
-            
-            # 如果提供了损失函数，计算损失
-            if criterion is not None:
-                # 如果输出是元组（多输出），计算两部分损失之和
-                if isinstance(outputs, tuple):
-                    loss = sum(criterion(output, labels) for output in outputs)  # 多输出损失之和
-                else:
-                    loss = criterion(outputs, labels)
-                
-                output,deep=outputs
+            output,deep=outputs
             # 处理deep：求平均，reshape为output尺寸，并和output相加
             deep_mean = torch.mean(deep, dim=1)  # 沿着第1维求平均
             deep_reshaped = deep_mean.view_as(output)  # 重塑为与output相同的尺寸
@@ -547,6 +547,7 @@ def train_milti_output_model(
                 
                 # 梯度清空
                 optimizer.zero_grad()
+
                 # 模型前向计算
                 if isinstance(inputs, list):
                     outputs = model(*inputs)
@@ -583,24 +584,24 @@ def train_milti_output_model(
 
                 # 验证评估
                 if global_step % eval_step == 0:
-                    val_loss = evaluate_milti_output_model(model, val_loader, device,criterion)
+                    epoch_val_loss = evaluate_milti_output_model(model, val_loader, device,criterion)
                     record_dict["val"].append({
-                        "loss": val_loss, "step": global_step
+                        "loss": epoch_val_loss, "step": global_step
                     })
 
                     # 保存模型权重
                     # 如果有模型保存器，保存模型
                     if model_saver is not None:
-                        model_saver(model, -val_loss,epoch_id)#保存模型，-val_loss是因为val_loss越小越好，所以取负数
+                        model_saver(model, -epoch_val_loss,epoch_id)#保存模型，-val_loss是因为val_loss越小越好，所以取负数
                     
                     # 如果有早停器，检查是否应该早停
                     if early_stopping is not None:
-                        early_stopping(val_loss)
+                        early_stopping(-epoch_val_loss) #早停器需要取负数
                         if early_stopping.early_stop:
                             print(f'早停: 已有5轮验证损失没有改善！')
                             return model,record_dict
                             
                 pbar.update(1)
-                pbar.set_postfix({"epoch": epoch_id, "loss": f"{epoch_train_loss:.4f}"})
+                pbar.set_postfix({"epoch": epoch_id, "loss": f"{epoch_train_loss:.4f}", "val_loss": f"{epoch_val_loss:.4f}", "step": global_step})
     
     return model,record_dict
