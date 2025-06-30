@@ -207,9 +207,6 @@ def train_regression_model(
 
     with tqdm(total=num_epochs * len(train_loader)) as pbar:
         for epoch_id in range(num_epochs): 
-            # 训练
-            model.train()
-            
             for datas, labels in train_loader:
                 labels = labels.to(device)  # 标签放到device上
 
@@ -253,7 +250,8 @@ def train_regression_model(
                     record_dict["val"].append({
                         "loss": epoch_val_loss, "step": global_step
                     })
-                    
+                    # 训练
+                    model.train()
                     
                     # 保存模型权重
                     # 如果有模型保存器，保存模型
@@ -532,8 +530,6 @@ def train_milti_output_model(
     epoch_val_loss=0
     with tqdm(total=num_epochs * len(train_loader)) as pbar:
         for epoch_id in range(num_epochs): 
-            # 训练
-            model.train()
             for datas, labels in train_loader:
                 # 处理多输入情况，假设inputs是一个包含多个tensor的元组，targets是最后一个元素
                 
@@ -588,7 +584,8 @@ def train_milti_output_model(
                     record_dict["val"].append({
                         "loss": epoch_val_loss, "step": global_step
                     })
-
+                    # 训练
+                    model.train()
                     # 保存模型权重
                     # 如果有模型保存器，保存模型
                     if model_saver is not None:
