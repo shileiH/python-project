@@ -159,7 +159,7 @@ def evaluate_classification_model(model, data_loader, device, criterion):
         avg_loss = running_loss / total
         return accuracy, avg_loss
 
-    return accuracy
+    return accuracy,None
 
 
 #回归训练模型
@@ -378,7 +378,7 @@ def train_classification_model(
 
 
 # 画线要注意的是损失是不一定在零到1之间的
-def plot_learning_curves(record_dict, sample_step=500):
+def plot_learning_curves(record_dict, sample_step=500,eval_step=1000):
     """
     画学习曲线，横坐标是steps，纵坐标是loss和acc,回归问题只有loss
     
@@ -393,14 +393,24 @@ def plot_learning_curves(record_dict, sample_step=500):
     fig, axs = plt.subplots(1, fig_num, figsize=(5 * fig_num, 5))  # fig_num个子图，figsize是子图大小
     for idx, item in enumerate(train_df.columns):
         # index是步数，item是指标名字
-        axs[idx].plot(train_df.index, train_df[item], label=f"train_{item}")
-        axs[idx].plot(val_df.index, val_df[item], label=f"val_{item}")
-        axs[idx].grid()
-        axs[idx].legend()
-        x_data = range(0, train_df.index[-1], 5000)  # 每隔5000步标出一个点
-        axs[idx].set_xticks(x_data)
-        axs[idx].set_xticklabels(map(lambda x: f"{int(x / 1000)}k", x_data))  # map生成labal
-        axs[idx].set_xlabel("step")
+        axs[idx].plot(train_df.index, train_df[item], label=f"train_{item}")  # 绘制训练曲线
+        axs[idx].plot(val_df.index, val_df[item], label=f"val_{item}")        # 绘制验证曲线
+        axs[idx].grid()  # 显示网格
+        axs[idx].legend()  # 显示图例
+
+        # 根据eval_step动态设置x轴刻度和标签
+        if eval_step < 1000:
+            # eval_step小于1000时，每eval_step步显示一次
+            x_data = range(0, train_df.index[-1] + 1, eval_step)
+            axs[idx].set_xticks(x_data)
+            axs[idx].set_xticklabels([str(x) for x in x_data])  # 直接显示步数
+        else:
+            # eval_step大于等于1000时，仍然以k为单位显示
+            x_data = range(0, train_df.index[-1] + 1, 5000)
+            axs[idx].set_xticks(x_data)
+            axs[idx].set_xticklabels([f"{int(x / 1000)}k" for x in x_data])  # 以k为单位显示
+
+        axs[idx].set_xlabel("step")  # 设置x轴标签为英文
 
     plt.show()
 
