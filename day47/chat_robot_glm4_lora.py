@@ -19,14 +19,14 @@ from typing import Union
 from pathlib import Path
 from peft import AutoPeftModelForCausalLM, PeftModelForCausalLM
 from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-    PreTrainedTokenizerFast,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    TextIteratorStreamer
+    AutoModelForCausalLM,         # 用于加载因果语言模型的自动模型类 (AutoModelForCausalLM)
+    AutoTokenizer,                # 用于加载分词器的自动分词器类 (AutoTokenizer)
+    PreTrainedModel,              # 预训练模型的基类 (PreTrainedModel)
+    PreTrainedTokenizer,          # 预训练分词器的基类 (PreTrainedTokenizer)
+    PreTrainedTokenizerFast,      # 快速版预训练分词器的基类 (PreTrainedTokenizerFast)
+    StoppingCriteria,             # 文本生成停止条件的基类 (StoppingCriteria)
+    StoppingCriteriaList,         # 停止条件的列表类 (StoppingCriteriaList)
+    TextIteratorStreamer          # 用于流式文本生成的迭代器 (TextIteratorStreamer)
 )
 import tornado.web
 import tornado.ioloop
